@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JULI KART 🚗</title>
+  <style>
+    :root{
+      --bg:#07152f;
+      --panel:#0f172acc;
+      --green:#22c55e;
+      --green-dark:#16a34a;
+      --gray:#334155;
+      --white:#f8fafc;
+      --yellow:#facc15;
+      --red:#ef4444;
+      --road:#1e293b;
+      --sky1:#081226;
+      --sky2:#102a56;
+    }
+
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      min-height:100vh;
+      background:linear-gradient(180deg,var(--sky1),var(--bg));
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      font-family:Arial, Helvetica, sans-serif;
+      overflow:hidden;
+    }
+
+    canvas{
+      width:min(100vw, 430px);
+      height:auto;
+      display:block;
+      border-radius:20px;
+      box-shadow:0 10px 40px rgba(0,0,0,.35);
+    }
+
+    #controls{
+      margin-top:12px;
+      display:flex;
+      gap:12px;
+    }
+
+    button{
+      border:none;
+      border-radius:14px;
+      padding:14px 22px;
+      font-size:22px;
+      font-weight:700;
+      color:white;
+      background:linear-gradient(180deg,var(--green),var(--green-dark));
+      box-shadow:0 6px 18px rgba(34,197,94,.25);
+      cursor:pointer;
+      min-width:84px;
+    }
+
+    button:active{
+      transform:scale(.96);
+    }
+
+    #restartBtn.hidden{
+      display:none;
+    }
+
+    #restartBtn{
+      margin-top:10px;
+      min-width:220px;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="controls">
+    <button onclick="selectOpt(0)">⬅️</button>
+    <button onclick="confirmOption()">OK</button>
+    <button onclick="selectOpt(1)">➡️</button>
+  </div>
+
+  <button id="restartBtn" class="hidden" onclick="restartGame()">🔁 Volver a jugar</button>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      const restartBtn = document.getElementById("restartBtn");
+
+      canvas.width = 430;
+      canvas.height = 760;
+
+      const tablas = [5,6,7,8,9];
+      const QUESTIONS_PER_LEVEL = 5;
+      const MAX_LEVEL = 5;
+
+      let state = "menu"; // menu, play, levelup, win, lose
+      let level = 1;
+      let score = 0;
+      let lives = 3;
+      let selected = 0;
+
+      let a = 5;
+      let b = 1;
+      let correct = 5;
+      let options = [];
+
+      let questionsInLevel = 0;
+      let totalAnswered = 0;
+      let roadOffset = 0;
+      let speed = 0.8;
+      let playerX = 44;
+      let targetX = 44;
+      let boostTimer = 0;
+      let levelUpUntil = 0;
+      let history = [];
+      let particles = [];
+
+      function generateQuestion(){
+        const tabla = tablas[level - 1] || 5;
+
+        let nextB;
+        let tries = 0;
+        do{
+          nextB = Math.floor(Math.random() * 10) + 1;
+          tries++;
+          if (tries > 30) break;
+        }while(history.includes(tabla + "-" + nextB));
+
+        a = tabla;
+        b = nextB;
+        correct = a * b;
+
+        history.push(tabla + "-" + nextB);
+        if(history.length > 8) history.shift();
+
+        const delta = Math.random() > 0.5 ? 2 : -2;
+        let wrong = correct + delta;
+        if(wrong <= 0 || wrong === correct) wrong = correct + 3;
+
+        options = [correct, wrong].sort(() => Math.random() - 0.5);
+        selected = 0;
+      }
+
+      function resetGame(){
+        state = "menu";
+        level = 1;
+        score = 0;
+        lives = 3;
+        selected = 0;
+        questionsInLevel = 0;
+        totalAnswered = 0;
+        roadOffset = 0;
+        speed = 0.8;
+        playerX = 44;
+        targetX = 44;
+        boostTimer = 0;
+        levelUpUntil = 0;
+        history = [];
+        particles = [];
+        restartBtn.classList.add("hidden");
+        generateQuestion();
+      }
+
+      window.selectOpt = function(i){
+        if(state !== "play") return;
+        selected = i;
+      }
+
+      window.confirmOption = function(){
+        if(state === "menu"){
+          state = "play";
+          return;
+        }
+        if(state === "play"){
+          evaluate();
+        }
+      }
+
+      window.restartGame = function(){
+        resetGame();
+      }
+
+      function spawnParticles(x, y, color){
+        for(let i = 0; i < 18; i++){
+          particles.push({
+            x, y,
+            vx:(Math.random() - 0.5) * 5,
+            vy:(Math.random() - 1.8) * 4,
+            life:1,
+            color
+          });
+        }
+      }
+
+      function updateParticles(){
+        particles = particles.filter(p => p.life > 0);
+        for(const p of particles){
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.12;
+          p.life -= 0.03;
+        }
+      }
+
+      function drawParticles(){
+        for(const p of particles){
+          ctx.save();
+          ctx.globalAlpha = p.life;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      function evaluate(){
+        if(options[selected] === correct){
+          targetX += 42;
+          score += 10;
+          boostTimer = 18;
+          spawnParticles(playerX + 55, 560, "#22c55e");
+        } else {
+          targetX -= 18;
+          lives--;
+          spawnParticles(playerX + 40, 560, "#ef4444");
+          if(lives <= 0){
+            state = "lose";
+            restartBtn.classList.remove("hidden");
+            return;
+          }
+        }
+
+        questionsInLevel++;
+        totalAnswered++;
+
+        if(questionsInLevel >= QUESTIONS_PER_LEVEL){
+          level++;
+          questionsInLevel = 0;
+          speed = Math.min(3.2, speed + 0.45);
+
+          if(level > MAX_LEVEL){
+            state = "win";
+            restartBtn.classList.remove("hidden");
+            return;
+          }
+
+          state = "levelup";
+          levelUpUntil = performance.now() + 1300;
+        }
+
+        generateQuestion();
+      }
+
+      function drawSky(){
+        const grad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.65);
+        grad.addColorStop(0, "#061226");
+        grad.addColorStop(1, "#102b57");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#ffffff";
+        for(let i = 0; i < 28; i++){
+          const x = (i * 37) % canvas.width;
+          const y = 24 + ((i * 53) % 180);
+          ctx.globalAlpha = 0.25 + ((i % 3) * 0.15);
+          ctx.fillRect(x, y, 2, 2);
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function drawQuestionPanel(){
+        ctx.fillStyle = "rgba(0,0,0,.42)";
+        ctx.fillRect(0, 110, canvas.width, 150);
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 52px Arial";
+        ctx.fillText(`${a} x ${b} = ?`, canvas.width / 2, 175);
+
+        const startX = canvas.width / 2 - 105;
+        const y = 198;
+
+        for(let i = 0; i < options.length; i++){
+          const x = startX + (i * 115);
+          ctx.fillStyle = i === selected ? "#22c55e" : "#334155";
+          roundRect(ctx, x, y, 95, 52, 12, true, false);
+
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 30px Arial";
+          ctx.fillText(String(options[i]), x + 47, y + 34);
+        }
+
+        ctx.textAlign = "left";
+      }
+
+      function drawTopHUD(){
+        // panel
+        ctx.fillStyle = "rgba(15,23,42,.88)";
+        roundRect(ctx, 12, 12, canvas.width - 24, 82, 18, true, false);
+
+        // icono nivel
+        drawBadge(28, 28, 44, 44, "#facc15", "🏁");
+        drawBadge(88, 28, 44, 44, "#38bdf8", "⭐");
+        drawBadge(148, 28, 44, 44, "#f43f5e", "❤️");
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 16px Arial";
+        ctx.fillText("Nivel", 34, 86);
+        ctx.fillText("Score", 90, 86);
+        ctx.fillText("Vidas", 153, 86);
+
+        ctx.font = "bold 20px Arial";
+        ctx.fillText(String(level), 40, 58);
+        ctx.fillText(String(score), 96, 58);
+        ctx.fillText(String(lives), 160, 58);
+
+        // tabla actual
+        ctx.fillStyle = "#e2e8f0";
+        ctx.font = "bold 18px Arial";
+        ctx.fillText("Tabla " + (tablas[level - 1] || 9), 224, 44);
+
+        // barra de progreso nivel
+        const levelProgress = questionsInLevel / QUESTIONS_PER_LEVEL;
+        ctx.fillStyle = "#1e293b";
+        roundRect(ctx, 224, 56, 180, 14, 8, true, false);
+        ctx.fillStyle = "#22c55e";
+        roundRect(ctx, 224, 56, 180 * levelProgress, 14, 8, true, false);
+
+        ctx.fillStyle = "#cbd5e1";
+        ctx.font = "12px Arial";
+        ctx.fillText(`${questionsInLevel}/${QUESTIONS_PER_LEVEL}`, 370, 68);
+      }
+
+      function drawRoad(){
+        const roadY = 500;
+        const roadH = 135;
+
+        roadOffset = (roadOffset + speed) % 90;
+
+        ctx.fillStyle = "#1e293b";
+        ctx.fillRect(0, roadY, canvas.width, roadH);
+
+        // borde amarillo superior
+        ctx.strokeStyle = "#facc15";
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(0, roadY + 2);
+        ctx.lineTo(canvas.width, roadY + 2);
+        ctx.stroke();
+
+        // linea del centro
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 5;
+        ctx.setLineDash([28, 22]);
+        ctx.lineDashOffset = -roadOffset;
+        ctx.beginPath();
+        ctx.moveTo(0, roadY + 72);
+        ctx.lineTo(canvas.width, roadY + 72);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // barra de progreso total
+        ctx.fillStyle = "rgba(255,255,255,.18)";
+        roundRect(ctx, 70, 655, canvas.width - 140, 12, 8, true, false);
+        const totalProgress = Math.min(1, totalAnswered / (QUESTIONS_PER_LEVEL * MAX_LEVEL));
+        ctx.fillStyle = "#38bdf8";
+        roundRect(ctx, 70, 655, (canvas.width - 140) * totalProgress, 12, 8, true, false);
+
+        // meta visual
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(canvas.width - 34, roadY + 10, 10, 112);
+        for(let r = 0; r < 7; r++){
+          for(let c = 0; c < 2; c++){
+            ctx.fillStyle = (r + c) % 2 === 0 ? "#111827" : "#ffffff";
+            ctx.fillRect(canvas.width - 24 + c * 10, roadY + 12 + r * 16, 10, 16);
+          }
+        }
+      }
+
+      function drawCar(){
+        playerX += (targetX - playerX) * 0.1;
+        playerX = Math.max(18, Math.min(canvas.width - 110, playerX));
+
+        const x = playerX;
+        const y = 548;
+
+        // sombra
+        ctx.fillStyle = "rgba(0,0,0,.28)";
+        ctx.beginPath();
+        ctx.ellipse(x + 42, y + 34, 44, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // boost
+        if(boostTimer > 0){
+          ctx.fillStyle = "rgba(250,204,21,.85)";
+          ctx.beginPath();
+          ctx.moveTo(x - 6, y + 18);
+          ctx.lineTo(x - 28, y + 28);
+          ctx.lineTo(x - 6, y + 38);
+          ctx.fill();
+          boostTimer--;
+        }
+
+        // cuerpo
+        ctx.fillStyle = "#ef4444";
+        roundRect(ctx, x, y, 86, 28, 8, true, false);
+
+        // techo
+        ctx.fillStyle = "#dc2626";
+        roundRect(ctx, x + 16, y - 12, 44, 18, 8, true, false);
+
+        // ventana
+        ctx.fillStyle = "#bfdbfe";
+        roundRect(ctx, x + 20, y - 9, 18, 12, 4, true, false);
+        roundRect(ctx, x + 40, y - 9, 16, 12, 4, true, false);
+
+        // ruedas
+        drawWheel(x + 18, y + 28);
+        drawWheel(x + 66, y + 28);
+      }
+
+      function drawWheel(x, y){
+        ctx.fillStyle = "#0f172a";
+        ctx.beginPath();
+        ctx.arc(x, y, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#94a3b8";
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function drawLevelUp(){
+        ctx.fillStyle = "rgba(0,0,0,.55)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#facc15";
+        ctx.font = "bold 44px Arial";
+        ctx.fillText("🚀 SUBISTE DE NIVEL", canvas.width / 2, 320);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 34px Arial";
+        ctx.fillText("Nivel " + level, canvas.width / 2, 365);
+        ctx.textAlign = "left";
+      }
+
+      function drawEndScreen(title, color){
+        ctx.fillStyle = "rgba(0,0,0,.62)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = color;
+        ctx.font = "bold 46px Arial";
+        ctx.fillText(title, canvas.width / 2, 290);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 22px Arial";
+        ctx.fillText("Presioná 'Volver a jugar'", canvas.width / 2, 332);
+        ctx.textAlign = "left";
+      }
+
+      function drawBadge(x, y, w, h, color, emoji){
+        ctx.fillStyle = color;
+        roundRect(ctx, x, y, w, h, 12, true, false);
+        ctx.font = "22px Arial";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#111827";
+        ctx.fillText(emoji, x + w/2, y + 29);
+        ctx.textAlign = "left";
+      }
+
+      function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+        if (typeof radius === "number") {
+          radius = {tl: radius, tr: radius, br: radius, bl: radius};
+        }
+        ctx.beginPath();
+        ctx.moveTo(x + radius.tl, y);
+        ctx.lineTo(x + width - radius.tr, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
+        ctx.lineTo(x + width, y + height - radius.br);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
+        ctx.lineTo(x + radius.bl, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
+        ctx.lineTo(x, y + radius.tl);
+        ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+        ctx.closePath();
+        if (fill) ctx.fill();
+        if (stroke) ctx.stroke();
+      }
+
+      function draw(now = 0){
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawSky();
+        drawTopHUD();
+        drawQuestionPanel();
+        drawRoad();
+        drawCar();
+        updateParticles();
+        drawParticles();
+
+        if(state === "menu"){
+          ctx.fillStyle = "rgba(0,0,0,.46)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.textAlign = "center";
+          ctx.fillStyle = "#22c55e";
+          ctx.font = "bold 40px Arial";
+          ctx.fillText("JULI KART 🚗", canvas.width / 2, 320);
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 22px Arial";
+          ctx.fillText("Presioná OK para comenzar", canvas.width / 2, 360);
+          ctx.textAlign = "left";
+        }
+
+        if(state === "levelup"){
+          drawLevelUp();
+          if(now >= levelUpUntil){
+            state = "play";
+          }
+        }
+
+        if(state === "win"){
+          drawEndScreen("🏆 GANASTE", "#facc15");
+        }
+
+        if(state === "lose"){
+          drawEndScreen("💀 GAME OVER", "#ef4444");
+        }
+
+        requestAnimationFrame(draw);
+      }
+
+      resetGame();
+      draw();
+    });
+  </script>
+</body>
+</html>
