@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JULI KART 🚗</title>
+
+<style>
+body{
+  margin:0;
+  background:#0f172a;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  height:100vh;
+  font-family:Arial;
+}
+
+canvas{
+  width:100%;
+  max-width:420px;
+  border-radius:20px;
+}
+
+#controls{
+  display:flex;
+  gap:15px;
+  margin-top:10px;
+}
+
+button{
+  font-size:20px;
+  padding:12px 20px;
+  border:none;
+  border-radius:12px;
+  background:#22c55e;
+  color:white;
+}
+
+.hidden{
+  display:none;
+}
+</style>
+</head>
+
+<body>
+
+<!-- 🔥 ESTO TE FALTABA -->
+<canvas id="gameCanvas"></canvas>
+
+<div id="controls">
+  <button onclick="selectOpt(0)">⬅️</button>
+  <button onclick="confirmOption()">OK</button>
+  <button onclick="selectOpt(1)">➡️</button>
+</div>
+
+<button id="restartBtn" class="hidden" onclick="restartGame()">🔁 Volver a jugar</button>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+const canvas = document.getElementById("gameCanvas");
+
+if(!canvas){
+  alert("ERROR: No existe canvas");
+  return;
+}
+
+const ctx = canvas.getContext("2d");
+
+canvas.width = 420;
+canvas.height = 320;
+
+const restartBtn = document.getElementById("restartBtn");
+
+// IMÁGENES
+const road = new Image();
+const car = new Image();
+
+road.src = "road.png";
+car.src = "car.png";
+
+// ESTADO
+let state="menu";
+let playerX=50;
+let targetX=50;
+
+let level=1;
+let score=0;
+let questions=0;
+let lives=3;
+
+let a,b,correct,options=[];
+let selected=0;
+
+let roadOffset=0;
+let speed = 1;
+let history = [];
+
+const tablas = [5,6,7,8,9];
+
+// GENERAR PREGUNTA
+function generateQuestion(){
+
+  let tabla = tablas[level-1] || 5;
+
+  do{
+    b = Math.floor(Math.random()*10)+1;
+  }while(history.includes(b));
+
+  history.push(b);
+  if(history.length > 5) history.shift();
+
+  a = tabla;
+  correct = a*b;
+
+  let wrong = correct + (Math.random()>0.5?2:-2);
+  if(wrong<=0 || wrong===correct) wrong += 3;
+
+  options = [correct, wrong].sort(()=>Math.random()-0.5);
+}
+
+generateQuestion();
+
+// CONTROLES
+window.selectOpt = function(i){
+  if(state!=="play") return;
+  selected=i;
+}
+
+window.confirmOption = function(){
+  if(state==="menu"){
+    state="play";
+    return;
+  }
+  if(state==="play"){
+    evaluate();
+  }
+}
+
+window.restartGame = function(){
+  state="menu";
+  playerX=50;
+  targetX=50;
+  level=1;
+  score=0;
+  questions=0;
+  lives=3;
+  speed = 1;
+  history = [];
+  restartBtn.classList.add("hidden");
+  generateQuestion();
+}
+
+// EVALUAR
+function evaluate(){
+
+  if(options[selected]===correct){
+    targetX+=40;
+    score+=10;
+  }else{
+    targetX-=20;
+    lives--;
+
+    if(lives<=0){
+      state="lose";
+      restartBtn.classList.remove("hidden");
+      return;
+    }
+  }
+
+  questions++;
+
+  if(questions>=5){
+    level++;
+    questions=0;
+    speed += 0.5;
+
+    if(level>5){
+      state="win";
+      restartBtn.classList.remove("hidden");
+      return;
+    }
+
+    state="levelup";
+    setTimeout(()=>{ state="play"; },1200);
+  }
+
+  generateQuestion();
+}
+
+// LOOP
+function draw(){
+
+  ctx.fillStyle="#0f172a";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  if(state==="menu"){
+    ctx.fillStyle="#22c55e";
+    ctx.font="30px Arial";
+    ctx.textAlign="center";
+    ctx.fillText("JULI KART 🚗",canvas.width/2,120);
+
+    ctx.fillStyle="white";
+    ctx.fillText("Presiona OK",canvas.width/2,170);
+    return requestAnimationFrame(draw);
+  }
+
+  const roadY = canvas.height-80;
+
+  roadOffset=(roadOffset+speed)%canvas.width;
+
+  if(road.complete){
+    ctx.drawImage(road,-roadOffset,roadY,canvas.width,60);
+    ctx.drawImage(road,canvas.width-roadOffset,roadY,canvas.width,60);
+  }else{
+    ctx.fillStyle="#1e293b";
+    ctx.fillRect(0,roadY,canvas.width,60);
+  }
+
+  playerX += (targetX-playerX)*0.1;
+
+  if(car.complete){
+    ctx.drawImage(car,playerX,roadY+10,60,30);
+  }else{
+    ctx.fillStyle="red";
+    ctx.fillRect(playerX,roadY+20,40,20);
+  }
+
+  if(state==="play"){
+
+    ctx.fillStyle="#111827dd";
+    ctx.fillRect(0,40,canvas.width,120);
+
+    ctx.fillStyle="white";
+    ctx.font="bold 34px Arial";
+    ctx.textAlign="center";
+    ctx.fillText(`${a} x ${b} = ?`,canvas.width/2,90);
+
+    options.forEach((op,i)=>{
+      const x = canvas.width/2 - 90 + i*120;
+
+      ctx.fillStyle=i===selected?"#22c55e":"#374151";
+      ctx.fillRect(x,110,100,45);
+
+      ctx.fillStyle="white";
+      ctx.fillText(op,x+50,140);
+    });
+
+    ctx.textAlign="left";
+    ctx.fillText("Nivel "+level,10,20);
+    ctx.fillText("Score "+score,10,40);
+    ctx.fillText("❤️".repeat(lives),10,60);
+  }
+
+  if(state==="levelup"){
+    ctx.fillStyle="yellow";
+    ctx.font="30px Arial";
+    ctx.textAlign="center";
+    ctx.fillText("🚀 NIVEL "+level,canvas.width/2,150);
+  }
+
+  if(state==="win"){
+    ctx.fillStyle="yellow";
+    ctx.font="30px Arial";
+    ctx.textAlign="center";
+    ctx.fillText("🏆 GANASTE",canvas.width/2,150);
+  }
+
+  if(state==="lose"){
+    ctx.fillStyle="red";
+    ctx.font="30px Arial";
+    ctx.textAlign="center";
+    ctx.fillText("💀 GAME OVER",canvas.width/2,150);
+  }
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+
+});
+</script>
+
+</body>
+</html>
