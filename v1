@@ -46,7 +46,6 @@ button{
 
 <body>
 
-<!-- 🔥 ESTO TE FALTABA -->
 <canvas id="gameCanvas"></canvas>
 
 <div id="controls">
@@ -61,12 +60,6 @@ button{
 document.addEventListener("DOMContentLoaded", () => {
 
 const canvas = document.getElementById("gameCanvas");
-
-if(!canvas){
-  alert("ERROR: No existe canvas");
-  return;
-}
-
 const ctx = canvas.getContext("2d");
 
 canvas.width = 420;
@@ -100,9 +93,11 @@ let history = [];
 
 const tablas = [5,6,7,8,9];
 
+// PROGRESO
+const TOTAL_PREGUNTAS = 5;
+
 // GENERAR PREGUNTA
 function generateQuestion(){
-
   let tabla = tablas[level-1] || 5;
 
   do{
@@ -172,7 +167,7 @@ function evaluate(){
 
   questions++;
 
-  if(questions>=5){
+  if(questions>=TOTAL_PREGUNTAS){
     level++;
     questions=0;
     speed += 0.5;
@@ -188,6 +183,24 @@ function evaluate(){
   }
 
   generateQuestion();
+}
+
+// DIBUJAR BARRA PROGRESO
+function drawProgressBar(){
+
+  let progress = questions / TOTAL_PREGUNTAS;
+
+  // fondo
+  ctx.fillStyle="#111827";
+  ctx.fillRect(100,10,200,12);
+
+  // progreso
+  ctx.fillStyle="#22c55e";
+  ctx.fillRect(100,10,200 * progress,12);
+
+  // borde
+  ctx.strokeStyle="white";
+  ctx.strokeRect(100,10,200,12);
 }
 
 // LOOP
@@ -230,28 +243,39 @@ function draw(){
 
   if(state==="play"){
 
+    // PREGUNTA
     ctx.fillStyle="#111827dd";
-    ctx.fillRect(0,40,canvas.width,120);
+    ctx.fillRect(0,50,canvas.width,120);
 
     ctx.fillStyle="white";
-    ctx.font="bold 34px Arial";
+    ctx.font="bold 28px Arial";
     ctx.textAlign="center";
-    ctx.fillText(`${a} x ${b} = ?`,canvas.width/2,90);
+    ctx.fillText(`${a} x ${b} = ?`,canvas.width/2,95);
 
     options.forEach((op,i)=>{
       const x = canvas.width/2 - 90 + i*120;
 
       ctx.fillStyle=i===selected?"#22c55e":"#374151";
-      ctx.fillRect(x,110,100,45);
+      ctx.fillRect(x,120,100,45);
 
       ctx.fillStyle="white";
-      ctx.fillText(op,x+50,140);
+      ctx.fillText(op,x+50,150);
     });
 
+    // UI SUPERIOR
+    ctx.fillStyle="#00000088";
+    ctx.fillRect(0,0,160,70);
+
+    ctx.font="14px Arial";
     ctx.textAlign="left";
-    ctx.fillText("Nivel "+level,10,20);
-    ctx.fillText("Score "+score,10,40);
-    ctx.fillText("❤️".repeat(lives),10,60);
+    ctx.fillStyle="white";
+
+    ctx.fillText("Nivel: "+level,10,20);
+    ctx.fillText("Score: "+score,10,40);
+    ctx.fillText("❤️ "+lives,10,60);
+
+    // BARRA PROGRESO
+    drawProgressBar();
   }
 
   if(state==="levelup"){
