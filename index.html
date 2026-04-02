@@ -241,7 +241,10 @@ let raceStartTime = 0;
 let roadOffset    = 0;
 let botWobble     = [0, 0, 0];
 let particles     = [];
+let confetti      = [];
 let lastTime      = 0;
+let gameMode      = 'mult'; // 'mult' | 'suma' | 'resta'
+let menuSelected  = 1;      // 0=suma, 1=mult, 2=resta
 
 // ===== AUDIO =====
 let ac = null;
@@ -273,15 +276,152 @@ function addParticles(x, y, color, n = 10) {
   }
 }
 
-// ===== PREGUNTA =====
-function generateQ() {
-  const t = TABLES[(level - 1) % TABLES.length];
-  a = t; b = Math.floor(Math.random() * 10) + 1;
-  correct = a * b;
+// ===== CONFETI =====
+const CONFETTI_COLORS = ['#fbbf24','#818cf8','#22c55e','#ef4444','#38bdf8','#f97316','#ec4899','#a3e635'];
+function launchConfetti(n = 120) {
+  confetti = [];
+  for (let i = 0; i < n; i++) {
+    confetti.push({
+      x: Math.random() * W,
+      y: -10 - Math.random() * 80,
+      vx: (Math.random() - 0.5) * 3,
+      vy: 2 + Math.random() * 4,
+      rot: Math.random() * Math.PI * 2,
+      rotV: (Math.random() - 0.5) * 0.2,
+      w: 8 + Math.random() * 8,
+      h: 4 + Math.random() * 4,
+      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+      life: 1
+    });
+  }
+}
 
+function updateDrawConfetti() {
+  confetti.forEach(c => {
+    c.x += c.vx; c.y += c.vy; c.rot += c.rotV;
+    c.vy += 0.08; // gravedad
+    if (c.y > H + 20) c.life = 0;
+  });
+  confetti = confetti.filter(c => c.life > 0);
+  confetti.forEach(c => {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(c.rot);
+    ctx.fillStyle = c.color;
+    ctx.globalAlpha = 0.9;
+    ctx.fillRect(-c.w/2, -c.h/2, c.w, c.h);
+    ctx.restore();
+  });
+  ctx.globalAlpha = 1;
+}
+
+// ===== PREGUNTA =====
+// Dificultad por nivel:
+//   Niveles 1-2  → básico:    números pequeños, operación directa (a OP b = ?)
+//   Niveles 3-4  → medio:     números medianos, término faltante (a OP ? = c)
+//   Niveles 5+   → avanzado:  números grandes,  mezcla de formas, distractores cercanos
+
+function getDifficultyTier() {
+  if (level <= 2) return 'basic';
+  if (level <= 4) return 'medium';
+  return 'advanced';
+}
+
+function generateQ() {
+  const tier = getDifficultyTier();
+  let questionText = '';
+  let qType = 'direct'; // 'direct' = a OP b = ?  |  'missing' = a OP ? = c
+
+  // En niveles medios/avanzados mezclar ambas formas
+  if (tier === 'medium')   qType = Math.random() < 0.5 ? 'direct' : 'missing';
+  if (tier === 'advanced') qType = Math.random() < 0.35 ? 'direct' : 'missing';
+
+  if (gameMode === 'mult') {
+    // Tablas básicas: 3,4,5,6  |  medias: 5,6,7,8  |  avanzadas: 6,7,8,9 mezcladas
+    const basicTables    = [3,4,5,6];
+    const mediumTables   = [5,6,7,8];
+    const advancedTables = [6,7,8,9];
+
+    const pool = tier === 'basic' ? basicTables : tier === 'medium' ? mediumTables : advancedTables;
+    // mezclar aleatoriamente dentro del pool (no secuencial)
+    a = pool[Math.floor(Math.random() * pool.length)];
+    b = tier === 'basic'    ? Math.floor(Math.random() * 7) + 2          // 2-8
+      : tier === 'medium'   ? Math.floor(Math.random() * 8) + 3          // 3-10
+      :                       Math.floor(Math.random() * 10) + 1;        // 1-10
+
+    const resultado = a * b;
+
+    if (qType === 'direct') {
+      questionText = `${a} × ${b} = ?`;
+      correct = resultado;
+    } else {
+      // término faltante: elegir cuál ocultar
+      if (Math.random() < 0.5) {
+        questionText = `${a} × ? = ${resultado}`;
+        correct = b;
+      } else {
+        questionText = `? × ${b} = ${resultado}`;
+        correct = a;
+      }
+    }
+
+  } else if (gameMode === 'suma') {
+    // básico: 5-20 + 5-20  |  medio: 10-50 + 10-40  |  avanzado: 25-100 + 15-60
+    const [minA, maxA, minB, maxB] =
+      tier === 'basic'    ? [5,  20, 5,  20] :
+      tier === 'medium'   ? [10, 50, 10, 40] :
+                            [25,100, 15, 60];
+
+    a = Math.floor(Math.random() * (maxA - minA + 1)) + minA;
+    b = Math.floor(Math.random() * (maxB - minB + 1)) + minB;
+    const resultado = a + b;
+
+    if (qType === 'direct') {
+      questionText = `${a} + ${b} = ?`;
+      correct = resultado;
+    } else {
+      if (Math.random() < 0.5) {
+        questionText = `${a} + ? = ${resultado}`;
+        correct = b;
+      } else {
+        questionText = `? + ${b} = ${resultado}`;
+        correct = a;
+      }
+    }
+
+  } else { // resta
+    // básico: 10-30 - 2-10  |  medio: 20-60 - 5-25  |  avanzado: 40-120 - 10-50
+    const [minA, maxA, minB, maxB] =
+      tier === 'basic'    ? [10, 30,  2, 10] :
+      tier === 'medium'   ? [20, 60,  5, 25] :
+                            [40,120, 10, 50];
+
+    a = Math.floor(Math.random() * (maxA - minA + 1)) + minA;
+    b = Math.floor(Math.random() * (maxB - minB + 1)) + minB;
+    if (b >= a) b = a - 1; // garantizar resultado positivo
+    const resultado = a - b;
+
+    if (qType === 'direct') {
+      questionText = `${a} − ${b} = ?`;
+      correct = resultado;
+    } else {
+      if (Math.random() < 0.5) {
+        questionText = `${a} − ? = ${resultado}`;
+        correct = b;
+      } else {
+        questionText = `? − ${b} = ${resultado}`;
+        correct = a;
+      }
+    }
+  }
+
+  // Distractores: más cercanos en avanzado (difícil), más separados en básico
+  const spread = tier === 'basic' ? [2,3,4,5] : tier === 'medium' ? [1,2,3,4] : [1,2,3];
   const wrongs = new Set();
-  while (wrongs.size < 2) {
-    const d = [-4,-3,-2,-1,1,2,3,4][Math.floor(Math.random()*8)];
+  let attempts = 0;
+  while (wrongs.size < 2 && attempts < 40) {
+    attempts++;
+    const d = spread[Math.floor(Math.random() * spread.length)] * (Math.random() < 0.5 ? 1 : -1);
     const w = correct + d;
     if (w > 0 && w !== correct) wrongs.add(w);
   }
@@ -289,8 +429,10 @@ function generateQ() {
   selected = -1;
   answered = false;
 
-  document.getElementById('question-text').textContent = `${a} × ${b} = ?`;
-  document.getElementById('question-sub').textContent  = `Tabla del ${a}  ·  Nivel ${level}`;
+  const modeLabel = gameMode === 'mult' ? 'Multiplicación' : gameMode === 'suma' ? 'Suma' : 'Resta';
+  const tierLabel  = tier === 'basic' ? '⭐ Básico' : tier === 'medium' ? '⭐⭐ Intermedio' : '⭐⭐⭐ Avanzado';
+  document.getElementById('question-text').textContent = questionText;
+  document.getElementById('question-sub').textContent  = `${modeLabel}  ·  ${tierLabel}  ·  Nivel ${level}`;
 
   ['o0','o1','o2'].forEach((id, i) => {
     const el = document.getElementById(id);
@@ -336,6 +478,11 @@ function handleTimeout() {
 }
 
 function pickOpt(i) {
+  if (state === 'menu') {
+    menuSelected = i;
+    renderMenuButtons();
+    return;
+  }
   if (answered || state !== 'play') return;
   selected = i;
   ['o0','o1','o2'].forEach((id, j) => {
@@ -343,8 +490,27 @@ function pickOpt(i) {
   });
 }
 
+function renderMenuButtons() {
+  const labels = ['➕ SUMA', '✖ MULT', '➖ RESTA'];
+  ['o0','o1','o2'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.textContent = labels[i];
+    el.disabled = false;
+    el.className = 'opt' + (i === menuSelected ? ' sel' : '');
+    el.onclick = () => pickOpt(i);
+  });
+  document.getElementById('question-text').textContent = 'JULI KART';
+  document.getElementById('question-sub').textContent  = '¡Elige el modo y presiona INICIAR!';
+  document.getElementById('btn-ok').textContent = 'INICIAR';
+}
+
 function confirmAction() {
-  if (state === 'menu')                        { startGame(); return; }
+  if (state === 'menu') {
+    const modes = ['suma', 'mult', 'resta'];
+    gameMode = modes[menuSelected];
+    startGame();
+    return;
+  }
   if (state === 'finish' || state === 'gameover') { resetFull(); return; }
   if (state !== 'play' || answered || selected === -1) return;
 
@@ -414,23 +580,24 @@ function resetFull() {
   lives = 3; score = 0; level = 1; questions = 0;
   playerX = 80; targetX = 80;
   bots.forEach(bot => { bot.x = 80; });
-  particles = []; finishRacer = null; finishOrder = []; raceStartTime = 0;
+  particles = []; confetti = []; finishRacer = null; finishOrder = []; raceStartTime = 0;
   if (window._finishTimeout) { clearTimeout(window._finishTimeout); window._finishTimeout = null; }
   clearInterval(timerInterval);
-  document.getElementById('btn-ok').textContent        = 'INICIAR';
-  document.getElementById('question-text').textContent = 'JULI KART';
-  document.getElementById('question-sub').textContent  = 'Presiona INICIAR para comenzar';
-  ['o0','o1','o2'].forEach(id => {
-    const el = document.getElementById(id);
-    el.textContent = '-'; el.className = 'opt'; el.disabled = false;
-  });
   document.getElementById('timer-bar').style.width = '100%';
   state = 'menu';
+  renderMenuButtons();
 }
 
 function syncUI() {
-  if (state === 'gameover' || state === 'finish')
+  if (state === 'menu') {
+    renderMenuButtons();
+  } else if (state === 'gameover' || state === 'finish') {
     document.getElementById('btn-ok').textContent = 'REINTENTAR';
+    ['o0','o1','o2'].forEach((id, i) => {
+      const el = document.getElementById(id);
+      el.onclick = () => pickOpt(i);
+    });
+  }
 }
 
 // ===== DIBUJO =====
@@ -698,19 +865,64 @@ function drawPodium() {
 }
 
 function drawMenu() {
-  ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, W, H);
+
+  // título
   ctx.fillStyle = '#818cf8';
-  ctx.font = 'bold 58px Orbitron,Arial';
+  ctx.font = 'bold 56px Orbitron,Arial';
   ctx.textAlign = 'center';
-  ctx.fillText('JULI KART', W / 2, H / 2 - 50);
+  ctx.fillText('JULI KART', W / 2, 110);
+
   ctx.fillStyle = '#475569';
-  ctx.font = '15px "Exo 2",Arial';
-  ctx.fillText('Responde las tablas y gana la carrera', W / 2, H / 2 + 5);
+  ctx.font = '14px "Exo 2",Arial';
+  ctx.fillText('Responde el término que falta y gana la carrera', W / 2, 140);
+
+  // selector de modo
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = 'bold 13px "Exo 2",Arial';
+  ctx.fillText('ELIGE EL MODO DE JUEGO', W / 2, 195);
+
+  const modes = [
+    { key: 'suma',  label: '➕ SUMA',          sub: 'a + ? = c' },
+    { key: 'mult',  label: '✖ MULTIPLICACIÓN', sub: 'a × ? = c' },
+    { key: 'resta', label: '➖ RESTA',          sub: 'a − ? = c' },
+  ];
+  const boxW = 200, boxH = 72, gap = 20;
+  const totalW = modes.length * boxW + (modes.length - 1) * gap;
+  const startX = W / 2 - totalW / 2;
+
+  modes.forEach((m, i) => {
+    const bx = startX + i * (boxW + gap);
+    const by = 215;
+    const isSel = menuSelected === i;
+
+    ctx.fillStyle = isSel ? '#4f46e5' : '#12122a';
+    ctx.strokeStyle = isSel ? '#818cf8' : '#2a2a4a';
+    ctx.lineWidth = isSel ? 2.5 : 1;
+    ctx.beginPath(); ctx.roundRect(bx, by, boxW, boxH, 12); ctx.fill(); ctx.stroke();
+
+    ctx.fillStyle = isSel ? '#fff' : '#64748b';
+    ctx.font = `bold ${isSel ? 15 : 14}px "Exo 2",Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(m.label, bx + boxW / 2, by + 30);
+
+    ctx.fillStyle = isSel ? '#c7d2fe' : '#334155';
+    ctx.font = '12px "Exo 2",Arial';
+    ctx.fillText(m.sub, bx + boxW / 2, by + 52);
+  });
+
+  // flechas hint
+  ctx.fillStyle = '#334155';
+  ctx.font = '12px "Exo 2",Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('usa ← → para cambiar modo', W / 2, 310);
+
+  // botón iniciar
   ctx.fillStyle = '#4f46e5';
-  ctx.beginPath(); ctx.roundRect(W / 2 - 90, H / 2 + 30, 180, 48, 10); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(W / 2 - 100, 330, 200, 50, 12); ctx.fill();
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 20px "Exo 2",Arial';
-  ctx.fillText('INICIAR', W / 2, H / 2 + 60);
+  ctx.fillText('INICIAR', W / 2, 362);
 }
 
 function drawCountdown() {
@@ -808,6 +1020,7 @@ function loop(ts) {
         state = 'finish';
         clearInterval(timerInterval);
         playFinish();
+        launchConfetti(150);
         if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
         syncUI();
 
@@ -838,7 +1051,7 @@ function loop(ts) {
   }
 
   if (state === 'countdown') drawCountdown();
-  if (state === 'finish')    drawPodium();
+  if (state === 'finish') { updateDrawConfetti(); drawPodium(); }
   if (state === 'gameover')  drawOverlay(
     'GAME OVER', '#ef4444',
     'Score: ' + score + '  ·  Nivel alcanzado: ' + level,
@@ -850,6 +1063,7 @@ function loop(ts) {
 }
 
 requestAnimationFrame(loop);
+renderMenuButtons();
 </script>
 
 </body>
