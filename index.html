@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JULI KART 🏎️</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Exo+2:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #050510;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Exo 2', sans-serif;
+  }
+
+  #jk {
+    width: 95vw;
+    max-width: 900px;
+    background: #0a0a1a;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid #1a1a3a;
+    box-shadow: 0 0 60px rgba(79,70,229,0.2);
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  #ui {
+    padding: 14px 16px 18px;
+    background: #0d0d22;
+    border-top: 1px solid #1a1a3a;
+  }
+
+  #timer-bar-wrap {
+    height: 6px;
+    background: #1a1a3a;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  #timer-bar {
+    height: 100%;
+    width: 100%;
+    background: #4f46e5;
+    border-radius: 3px;
+    transition: width 0.1s linear, background 0.3s;
+  }
+
+  #question-area {
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  #question-text {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(18px, 4vw, 26px);
+    color: #e0e7ff;
+    letter-spacing: 3px;
+    min-height: 34px;
+  }
+
+  #question-sub {
+    font-size: 12px;
+    color: #475569;
+    margin-top: 4px;
+    min-height: 18px;
+  }
+
+  .opts {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .opt {
+    flex: 1;
+    padding: 14px 8px;
+    border-radius: 10px;
+    border: 2px solid #1e1e3a;
+    background: #12122a;
+    color: #c7d2fe;
+    font-family: 'Exo 2', sans-serif;
+    font-size: clamp(14px, 3vw, 18px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, transform 0.1s;
+    text-align: center;
+  }
+
+  .opt:hover:not(:disabled) {
+    border-color: #4f46e5;
+    background: #1e1b4b;
+  }
+
+  .opt.sel {
+    border-color: #818cf8;
+    background: #1e1b4b;
+    box-shadow: 0 0 12px rgba(79,70,229,0.5);
+  }
+
+  .opt.correct {
+    border-color: #22c55e;
+    background: #14532d;
+    animation: pop 0.3s ease;
+  }
+
+  .opt.wrong {
+    border-color: #ef4444;
+    background: #450a0a;
+    animation: shake 0.3s ease;
+  }
+
+  .opt:disabled { cursor: default; }
+
+  .btns {
+    display: flex;
+    gap: 10px;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 13px;
+    border-radius: 10px;
+    border: none;
+    font-family: 'Exo 2', sans-serif;
+    font-size: clamp(13px, 2.5vw, 16px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  .btn:active { transform: scale(0.97); }
+
+  .btn-ok {
+    background: #4f46e5;
+    color: #fff;
+    flex: 3;
+  }
+
+  .btn-ok:hover { background: #4338ca; }
+
+  .btn-pause {
+    background: #1e293b;
+    color: #94a3b8;
+    border: 1px solid #334155;
+    flex: 1;
+  }
+
+  .btn-pause:hover { background: #334155; }
+
+  @keyframes pop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.06); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes shake {
+    0%   { transform: translateX(0); }
+    25%  { transform: translateX(-6px); }
+    75%  { transform: translateX(6px); }
+    100% { transform: translateX(0); }
+  }
+
+  @media (max-width: 500px) {
+    .opt { padding: 12px 4px; }
+    .btn { padding: 12px 6px; }
+  }
+
+  /* ===== PANEL DE PERFIL ===== */
+  #profile-panel {
+    display: none;
+    padding: 18px 20px 20px;
+    background: #0d0d22;
+    border-top: 1px solid #1a1a3a;
+  }
+
+  #profile-panel.visible { display: block; }
+
+  .profile-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    color: #64748b;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+
+  .profile-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .profile-label {
+    font-size: 13px;
+    color: #94a3b8;
+    min-width: 60px;
+    font-weight: 600;
+  }
+
+  #player-name-input {
+    flex: 1;
+    background: #12122a;
+    border: 2px solid #1e1e3a;
+    border-radius: 10px;
+    color: #e0e7ff;
+    font-family: 'Exo 2', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 10px 14px;
+    outline: none;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    transition: border-color .15s;
+  }
+
+  #player-name-input:focus { border-color: #818cf8; }
+  #player-name-input::placeholder { color: #334155; letter-spacing: 1px; }
+
+  .color-swatches {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .swatch {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    cursor: pointer;
+    transition: transform .15s, border-color .15s;
+  }
+
+  .swatch:hover { transform: scale(1.15); }
+  .swatch.active { border-color: #fff; transform: scale(1.15); }
+
+  .btn-save {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: #4f46e5;
+    color: #fff;
+    font-family: 'Exo 2', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+    margin-top: 4px;
+  }
+
+  .btn-save:hover { background: #4338ca; }
+</style>
+</head>
+<body>
+
+<div id="jk">
+  <canvas id="cv"></canvas>
+  <div id="ui">
+    <div id="timer-bar-wrap"><div id="timer-bar"></div></div>
+    <div id="question-area">
+      <div id="question-text">JULI KART</div>
+      <div id="question-sub">Presiona INICIAR para comenzar</div>
+    </div>
+    <div class="opts" id="opts-row">
+      <button class="opt" id="o0" onclick="pickOpt(0)">-</button>
+      <button class="opt" id="o1" onclick="pickOpt(1)">-</button>
+      <button class="opt" id="o2" onclick="pickOpt(2)">-</button>
+    </div>
+    <div class="btns">
+      <button class="btn btn-ok" id="btn-ok" onclick="confirmAction()">INICIAR</button>
+      <button class="btn btn-pause" onclick="togglePause()">⏸</button>
+    </div>
+  </div>
+
+  <!-- PANEL DE PERFIL -->
+  <div id="profile-panel">
+    <div class="profile-title">🏎 Tu perfil de piloto</div>
+
+    <div class="profile-row">
+      <span class="profile-label">Nombre</span>
+      <input id="player-name-input" type="text" maxlength="8" placeholder="TU NOMBRE" autocomplete="off" />
+    </div>
+
+    <div class="profile-row" style="align-items:flex-start">
+      <span class="profile-label" style="padding-top:6px">Color</span>
+      <div class="color-swatches" id="color-swatches"></div>
+    </div>
+
+    <button class="btn-save" onclick="saveProfile()">✅ GUARDAR Y JUGAR</button>
+  </div>
+</div>
+
+<script>
+const cv  = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const W = 900, H = 420;
+cv.width = W; cv.height = H;
+
+// ===== CONSTANTES =====
+const FINISH           = 840;
+const LANE_Y           = [90, 190, 285, 375];
+const CAR_W            = 110, CAR_H = 52;
+const TIMER_MAX        = 10;
+const QUESTIONS_PER_LV = 5;
+const TABLES           = [2, 3, 4, 5, 6, 7, 8, 9];
+
+// ===== ESTADO =====
+let state       = 'menu';
+let paused      = false;
+let level       = 1, score = 0, lives = 3;
+let questions   = 0;
+let playerX     = 80, targetX = 80;
+
+const BOT_NAMES = [
+  'REY','ZAP','ACE','MAX','TUR','NEO','FOX','KAI',
+  'RYU','DAN','VEX','SOL','RAY','JAX','SKY','BLU',
+  'PIP','GUS','RON','LEO','AXE','ICE','JET','DOC',
+];
+const BOT_COLORS = ['#ef4444','#f97316','#a855f7','#06b6d4','#22c55e','#ec4899','#eab308','#64748b'];
+
+function shuffleBotNames() {
+  // tomar 3 nombres al azar sin repetir, y 3 colores distintos al del jugador
+  const pool = BOT_NAMES.filter(n => n !== playerName.substring(0,6))
+                         .sort(() => Math.random() - 0.5);
+  const colPool = BOT_COLORS.filter(c => c !== playerColor)
+                             .sort(() => Math.random() - 0.5);
+  bots[0].name = pool[0]; bots[0].color = colPool[0];
+  bots[1].name = pool[1]; bots[1].color = colPool[1];
+  bots[2].name = pool[2]; bots[2].color = colPool[2];
+}
+
+let bots = [
+  { x: 80, speed: 0.22, color: '#ef4444', name: 'REY' },
+  { x: 80, speed: 0.19, color: '#f97316', name: 'ZAP' },
+  { x: 80, speed: 0.17, color: '#a855f7', name: 'ACE' },
+];
+let selected      = -1;
+let a = 0, b = 0, correct = 0, opts = [];
+let timerVal      = TIMER_MAX;
+let timerInterval = null;
+let countdownVal  = 3;
+let countdownTimer= null;
+let flashColor    = null, flashTimer = 0;
+let levelUpTimer  = 0;
+let answered      = false;
+let finishRacer   = null;
+let finishOrder   = [];   // orden de llegada [{name, color, time}]
+let finishTime    = 0;    // ms desde el inicio de la carrera
+let raceStartTime = 0;
+let roadOffset    = 0;
+let botWobble     = [0, 0, 0];
+let particles     = [];
+let confetti      = [];
+let lastTime      = 0;
+let gameMode      = 'mult'; // 'mult' | 'suma' | 'resta'
+let menuSelected  = 1;      // 0=suma, 1=mult, 2=resta
+
+// ===== PERFIL DEL JUGADOR =====
+const CAR_COLORS = [
+  { hex: '#4f46e5', name: 'Índigo'  },
+  { hex: '#22c55e', name: 'Verde'   },
+  { hex: '#ef4444', name: 'Rojo'    },
+  { hex: '#f97316', name: 'Naranja' },
+  { hex: '#eab308', name: 'Amarillo'},
+  { hex: '#ec4899', name: 'Rosa'    },
+  { hex: '#06b6d4', name: 'Cyan'    },
+  { hex: '#fff',    name: 'Blanco'  },
+];
+
+let playerName  = localStorage.getItem('jk_name')  || 'JULI';
+let playerColor = localStorage.getItem('jk_color') || '#4f46e5';
+let colorIdx    = CAR_COLORS.findIndex(c => c.hex === playerColor);
+if (colorIdx < 0) colorIdx = 0;
+
+// ===== AUDIO =====
+let ac = null;
+function getAC() { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); return ac; }
+function beep(freq, dur, type = 'square', vol = 0.15) {
+  try {
+    const a2 = getAC();
+    const o = a2.createOscillator(), g = a2.createGain();
+    o.connect(g); g.connect(a2.destination);
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, a2.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, a2.currentTime + dur);
+    o.start(); o.stop(a2.currentTime + dur);
+  } catch(e) {}
+}
+function playCorrect()   { beep(523,.08); setTimeout(()=>beep(659,.08),80); setTimeout(()=>beep(784,.15),160); }
+function playWrong()     { beep(200, .2, 'sawtooth', 0.1); }
+function playFinish()    { [523,587,659,784].forEach((f,i)=>setTimeout(()=>beep(f,.1),i*80)); }
+function playTimeout()   { beep(300, .3, 'triangle', 0.1); }
+function playCountdown() { beep(440, .1); }
+function playGo()        { beep(880, .2); setTimeout(()=>beep(1100,.3),100); }
+
+// ===== PARTÍCULAS =====
+function addParticles(x, y, color, n = 10) {
+  for (let i = 0; i < n; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 2 + Math.random() * 4;
+    particles.push({ x, y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, life: 1, color });
+  }
+}
+
+// ===== CONFETI =====
+const CONFETTI_COLORS = ['#fbbf24','#818cf8','#22c55e','#ef4444','#38bdf8','#f97316','#ec4899','#a3e635'];
+function launchConfetti(n = 120) {
+  confetti = [];
+  for (let i = 0; i < n; i++) {
+    confetti.push({
+      x: Math.random() * W,
+      y: -10 - Math.random() * 80,
+      vx: (Math.random() - 0.5) * 3,
+      vy: 2 + Math.random() * 4,
+      rot: Math.random() * Math.PI * 2,
+      rotV: (Math.random() - 0.5) * 0.2,
+      w: 8 + Math.random() * 8,
+      h: 4 + Math.random() * 4,
+      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+      life: 1
+    });
+  }
+}
+
+function updateDrawConfetti() {
+  confetti.forEach(c => {
+    c.x += c.vx; c.y += c.vy; c.rot += c.rotV;
+    c.vy += 0.08; // gravedad
+    if (c.y > H + 20) c.life = 0;
+  });
+  confetti = confetti.filter(c => c.life > 0);
+  confetti.forEach(c => {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(c.rot);
+    ctx.fillStyle = c.color;
+    ctx.globalAlpha = 0.9;
+    ctx.fillRect(-c.w/2, -c.h/2, c.w, c.h);
+    ctx.restore();
+  });
+  ctx.globalAlpha = 1;
+}
+
+// ===== PREGUNTA =====
+// Dificultad por nivel:
+//   Niveles 1-2  → básico:    números pequeños, operación directa (a OP b = ?)
+//   Niveles 3-4  → medio:     números medianos, término faltante (a OP ? = c)
+//   Niveles 5+   → avanzado:  números grandes,  mezcla de formas, distractores cercanos
+
+function getDifficultyTier() {
+  if (level <= 2) return 'basic';
+  if (level <= 4) return 'medium';
+  return 'advanced';
+}
+
+function generateQ() {
+  const tier = getDifficultyTier();
+  let questionText = '';
+  let qType = 'direct'; // 'direct' = a OP b = ?  |  'missing' = a OP ? = c
+
+  // En niveles medios/avanzados mezclar ambas formas
+  if (tier === 'medium')   qType = Math.random() < 0.5 ? 'direct' : 'missing';
+  if (tier === 'advanced') qType = Math.random() < 0.35 ? 'direct' : 'missing';
+
+  if (gameMode === 'mult') {
+    // Tablas básicas: 3,4,5,6  |  medias: 5,6,7,8  |  avanzadas: 6,7,8,9 mezcladas
+    const basicTables    = [3,4,5,6];
+    const mediumTables   = [5,6,7,8];
+    const advancedTables = [6,7,8,9];
+
+    const pool = tier === 'basic' ? basicTables : tier === 'medium' ? mediumTables : advancedTables;
+    // mezclar aleatoriamente dentro del pool (no secuencial)
+    a = pool[Math.floor(Math.random() * pool.length)];
+    b = tier === 'basic'    ? Math.floor(Math.random() * 7) + 2          // 2-8
+      : tier === 'medium'   ? Math.floor(Math.random() * 8) + 3          // 3-10
+      :                       Math.floor(Math.random() * 10) + 1;        // 1-10
+
+    const resultado = a * b;
+
+    if (qType === 'direct') {
+      questionText = `${a} × ${b} = ?`;
+      correct = resultado;
+    } else {
+      // término faltante: elegir cuál ocultar
+      if (Math.random() < 0.5) {
+        questionText = `${a} × ? = ${resultado}`;
+        correct = b;
+      } else {
+        questionText = `? × ${b} = ${resultado}`;
+        correct = a;
+      }
+    }
+
+  } else if (gameMode === 'suma') {
+    // básico: 5-20 + 5-20  |  medio: 10-50 + 10-40  |  avanzado: 25-100 + 15-60
+    const [minA, maxA, minB, maxB] =
+      tier === 'basic'    ? [5,  20, 5,  20] :
+      tier === 'medium'   ? [10, 50, 10, 40] :
+                            [25,100, 15, 60];
+
+    a = Math.floor(Math.random() * (maxA - minA + 1)) + minA;
+    b = Math.floor(Math.random() * (maxB - minB + 1)) + minB;
+    const resultado = a + b;
+
+    if (qType === 'direct') {
+      questionText = `${a} + ${b} = ?`;
+      correct = resultado;
+    } else {
+      if (Math.random() < 0.5) {
+        questionText = `${a} + ? = ${resultado}`;
+        correct = b;
+      } else {
+        questionText = `? + ${b} = ${resultado}`;
+        correct = a;
+      }
+    }
+
+  } else { // resta
+    // básico: 10-30 - 2-10  |  medio: 20-60 - 5-25  |  avanzado: 40-120 - 10-50
+    const [minA, maxA, minB, maxB] =
+      tier === 'basic'    ? [10, 30,  2, 10] :
+      tier === 'medium'   ? [20, 60,  5, 25] :
+                            [40,120, 10, 50];
+
+    a = Math.floor(Math.random() * (maxA - minA + 1)) + minA;
+    b = Math.floor(Math.random() * (maxB - minB + 1)) + minB;
+    if (b >= a) b = a - 1; // garantizar resultado positivo
+    const resultado = a - b;
+
+    if (qType === 'direct') {
+      questionText = `${a} − ${b} = ?`;
+      correct = resultado;
+    } else {
+      if (Math.random() < 0.5) {
+        questionText = `${a} − ? = ${resultado}`;
+        correct = b;
+      } else {
+        questionText = `? − ${b} = ${resultado}`;
+        correct = a;
+      }
+    }
+  }
+
+  // Distractores: más cercanos en avanzado (difícil), más separados en básico
+  const spread = tier === 'basic' ? [2,3,4,5] : tier === 'medium' ? [1,2,3,4] : [1,2,3];
+  const wrongs = new Set();
+  let attempts = 0;
+  while (wrongs.size < 2 && attempts < 40) {
+    attempts++;
+    const d = spread[Math.floor(Math.random() * spread.length)] * (Math.random() < 0.5 ? 1 : -1);
+    const w = correct + d;
+    if (w > 0 && w !== correct) wrongs.add(w);
+  }
+  opts = [correct, ...wrongs].sort(() => Math.random() - 0.5);
+  selected = -1;
+  answered = false;
+
+  const modeLabel = gameMode === 'mult' ? 'Multiplicación' : gameMode === 'suma' ? 'Suma' : 'Resta';
+  const tierLabel  = tier === 'basic' ? '⭐ Básico' : tier === 'medium' ? '⭐⭐ Intermedio' : '⭐⭐⭐ Avanzado';
+  document.getElementById('question-text').textContent = questionText;
+  document.getElementById('question-sub').textContent  = `${modeLabel}  ·  ${tierLabel}  ·  Nivel ${level}`;
+
+  ['o0','o1','o2'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.textContent = opts[i];
+    el.className   = 'opt';
+    el.disabled    = false;
+  });
+  document.getElementById('btn-ok').textContent = 'CONFIRMAR';
+  startTimer();
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  timerVal = TIMER_MAX;
+  updateTimerBar();
+  timerInterval = setInterval(() => {
+    if (paused || state !== 'play') return;
+    timerVal -= 0.1;
+    updateTimerBar();
+    if (timerVal <= 0) { clearInterval(timerInterval); handleTimeout(); }
+  }, 100);
+}
+
+function updateTimerBar() {
+  const pct = Math.max(0, timerVal / TIMER_MAX) * 100;
+  const bar = document.getElementById('timer-bar');
+  bar.style.width = pct + '%';
+  const hue = Math.floor(pct * 1.2);
+  bar.style.background = `hsl(${hue},90%,55%)`;
+}
+
+function handleTimeout() {
+  if (answered) return;
+  answered = true;
+  playTimeout();
+  lives--;
+  targetX -= 25;
+  flashColor = 'rgba(255,100,0,0.3)'; flashTimer = 30;
+  if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+  if (lives <= 0) { state = 'gameover'; clearInterval(timerInterval); syncUI(); return; }
+  setTimeout(() => generateQ(), 800);
+  syncUI();
+}
+
+function pickOpt(i) {
+  if (state === 'menu') {
+    menuSelected = i;
+    renderMenuButtons();
+    return;
+  }
+  if (answered || state !== 'play') return;
+  selected = i;
+  ['o0','o1','o2'].forEach((id, j) => {
+    document.getElementById(id).className = 'opt' + (j === i ? ' sel' : '');
+  });
+}
+
+function renderMenuButtons() {
+  const labels = ['➕ SUMA', '✖ MULT', '➖ RESTA'];
+  ['o0','o1','o2'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.textContent = labels[i];
+    el.disabled = false;
+    el.className = 'opt' + (i === menuSelected ? ' sel' : '');
+    el.onclick = () => pickOpt(i);
+  });
+  document.getElementById('question-text').textContent = playerName || 'JULI KART';
+  document.getElementById('question-sub').textContent  = '¡Elige el modo y presiona INICIAR!';
+  document.getElementById('btn-ok').textContent = 'INICIAR';
+}
+
+// ===== PERFIL PANEL =====
+function initSwatches() {
+  const container = document.getElementById('color-swatches');
+  container.innerHTML = '';
+  CAR_COLORS.forEach((c, i) => {
+    const div = document.createElement('div');
+    div.className = 'swatch' + (i === colorIdx ? ' active' : '');
+    div.style.background = c.hex;
+    div.style.border = c.hex === '#fff' ? '3px solid ' + (i === colorIdx ? '#fff' : '#334155') : '';
+    div.title = c.name;
+    div.onclick = () => {
+      colorIdx = i;
+      playerColor = CAR_COLORS[i].hex;
+      document.querySelectorAll('.swatch').forEach((s, j) => {
+        s.className = 'swatch' + (j === i ? ' active' : '');
+      });
+    };
+    container.appendChild(div);
+  });
+}
+
+function showProfilePanel() {
+  const panel = document.getElementById('profile-panel');
+  panel.classList.add('visible');
+  const input = document.getElementById('player-name-input');
+  input.value = playerName === 'JULI' ? '' : playerName;
+  colorIdx = CAR_COLORS.findIndex(c => c.hex === playerColor);
+  if (colorIdx < 0) colorIdx = 0;
+  initSwatches();
+}
+
+function hideProfilePanel() {
+  document.getElementById('profile-panel').classList.remove('visible');
+}
+
+function saveProfile() {
+  const raw = document.getElementById('player-name-input').value.trim().toUpperCase();
+  playerName  = raw.length > 0 ? raw.substring(0, 8) : 'PILOTO';
+  playerColor = CAR_COLORS[colorIdx].hex;
+  localStorage.setItem('jk_name',  playerName);
+  localStorage.setItem('jk_color', playerColor);
+  hideProfilePanel();
+  renderMenuButtons();
+  shuffleBotNames();
+  const modes = ['suma', 'mult', 'resta'];
+  gameMode = modes[menuSelected];
+  startGame();
+}
+
+function confirmAction() {
+  if (state === 'menu') {
+    showProfilePanel();
+    return;
+  }
+  if (state === 'finish' || state === 'gameover') { resetFull(); return; }
+  if (state !== 'play' || answered || selected === -1) return;
+
+  answered = true;
+  clearInterval(timerInterval);
+
+  const isCorrect = opts[selected] === correct;
+
+  ['o0','o1','o2'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.disabled = true;
+    if (opts[i] === correct)    el.className = 'opt correct';
+    else if (i === selected)    el.className = 'opt wrong';
+  });
+
+  if (isCorrect) {
+    const bonus = Math.ceil(timerVal);
+    targetX += 70 + bonus * 2;
+    score   += 10 + bonus;
+    flashColor = 'rgba(34,197,94,0.25)'; flashTimer = 20;
+    playCorrect();
+    addParticles(playerX + CAR_W / 2, LANE_Y[0] + CAR_H / 2, '#22c55e');
+  } else {
+    targetX -= 30;
+    lives--;
+    flashColor = 'rgba(239,68,68,0.25)'; flashTimer = 20;
+    playWrong();
+    if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+    if (lives <= 0) {
+      setTimeout(() => { state = 'gameover'; syncUI(); }, 600);
+      return;
+    }
+  }
+
+  questions++;
+  if (questions >= QUESTIONS_PER_LV) { level++; questions = 0; levelUpTimer = 90; }
+  syncUI();
+  setTimeout(() => generateQ(), 700);
+}
+
+function togglePause() {
+  if (state !== 'play' && state !== 'countdown') return;
+  paused = !paused;
+}
+
+function startGame() {
+  state = 'countdown'; countdownVal = 3;
+  document.getElementById('btn-ok').textContent        = '...';
+  document.getElementById('question-text').textContent = '';
+  document.getElementById('question-sub').textContent  = '';
+  ['o0','o1','o2'].forEach(id => { document.getElementById(id).textContent = '-'; });
+  clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    countdownVal--;
+    playCountdown();
+    if (countdownVal <= 0) {
+      clearInterval(countdownTimer);
+      playGo();
+      state = 'play';
+      raceStartTime = performance.now();
+      generateQ();
+    }
+  }, 1000);
+}
+
+function resetFull() {
+  lives = 3; score = 0; level = 1; questions = 0;
+  playerX = 80; targetX = 80;
+  bots.forEach(bot => { bot.x = 80; });
+  shuffleBotNames();
+  particles = []; confetti = []; finishRacer = null; finishOrder = []; raceStartTime = 0;
+  if (window._finishTimeout) { clearTimeout(window._finishTimeout); window._finishTimeout = null; }
+  clearInterval(timerInterval);
+  document.getElementById('timer-bar').style.width = '100%';
+  state = 'menu';
+  renderMenuButtons();
+}
+
+function syncUI() {
+  if (state === 'menu') {
+    renderMenuButtons();
+  } else if (state === 'gameover' || state === 'finish') {
+    document.getElementById('btn-ok').textContent = 'REINTENTAR';
+    ['o0','o1','o2'].forEach((id, i) => {
+      const el = document.getElementById(id);
+      el.onclick = () => pickOpt(i);
+    });
+  }
+}
+
+// ===== DIBUJO =====
+function drawRoad() {
+  // cielo
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#050010');
+  sky.addColorStop(1, '#180030');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+  // estrellas
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  for (let i = 0; i < 80; i++) {
+    const sx = (i * 137 + 20) % W;
+    const sy = (i * 97  + 10) % (H * 0.35);
+    ctx.fillRect(sx, sy, 1.2, 1.2);
+  }
+
+  // superficie de la pista
+  const rd = ctx.createLinearGradient(0, 60, 0, H);
+  rd.addColorStop(0, '#15152a'); rd.addColorStop(1, '#0a0a18');
+  ctx.fillStyle = rd; ctx.fillRect(0, 60, W, H);
+
+  // divisores de carril
+  ctx.strokeStyle = 'rgba(255,255,120,0.12)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([40, 30]);
+  ctx.lineDashOffset = -roadOffset;
+  [148, 245, 338].forEach(y => {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  // bordes
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(0, 64); ctx.lineTo(W, 64); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, H - 8); ctx.lineTo(W, H - 8); ctx.stroke();
+
+  // meta
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.fillRect(FINISH, 64, 5, H - 72);
+  const rows = 9, cols = 2, blockH = (H - 72) / rows, blockW = 13;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      ctx.fillStyle = (r + c) % 2 === 0 ? '#fff' : '#111';
+      ctx.fillRect(FINISH + 5 + c * blockW, 64 + r * blockH, blockW, blockH);
+    }
+  }
+}
+
+function drawCar(x, y, color, label) {
+  // cuerpo
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(x, y + 10, CAR_W, CAR_H - 20, 8);
+  ctx.fill();
+
+  // techo / cockpit
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.beginPath();
+  ctx.roundRect(x + 28, y + 8, 44, 14, 4);
+  ctx.fill();
+
+  // vidrio
+  ctx.fillStyle = 'rgba(100,200,255,0.3)';
+  ctx.fillRect(x + 30, y + 10, 40, 10);
+
+  // ruedas
+  [[8, 2], [CAR_W - 18, 2], [8, CAR_H - 14], [CAR_W - 18, CAR_H - 14]].forEach(([wx, wy]) => {
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath(); ctx.ellipse(x + wx + 5, y + wy + 5, 9, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#444';
+    ctx.beginPath(); ctx.ellipse(x + wx + 5, y + wy + 5, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // escape / llama
+  ctx.fillStyle = 'rgba(255,160,0,0.8)';
+  ctx.fillRect(x - 10, y + CAR_H - 22, 12, 6);
+  ctx.fillStyle = 'rgba(255,220,0,0.5)';
+  ctx.fillRect(x - 16, y + CAR_H - 21, 8, 4);
+
+  // etiqueta
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(x + CAR_W / 2 - 22, y + 14, 44, 14);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 10px "Exo 2",Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, x + CAR_W / 2, y + 24);
+  ctx.textAlign = 'left';
+}
+
+function drawPlayerCar(x) {
+  ctx.shadowColor = playerColor; ctx.shadowBlur = 24;
+  drawCar(x, LANE_Y[0], playerColor, playerName.substring(0,6));
+  ctx.shadowBlur = 0;
+}
+
+function drawHUD() {
+  ctx.fillStyle = 'rgba(0,0,0,0.72)';
+  ctx.fillRect(0, 0, W, 60);
+
+  // título
+  ctx.fillStyle = '#818cf8';
+  ctx.font = 'bold 18px Orbitron,Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('JULI KART', W / 2, 22);
+
+  // vidas
+  const heartsOn  = '❤'.repeat(lives);
+  const heartsOff = '🖤'.repeat(Math.max(0, 3 - lives));
+  ctx.font = '14px "Exo 2",Arial';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#fff';
+  ctx.fillText(heartsOn + heartsOff, 12, 24);
+
+  // score
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillText('SCORE: ' + score, W - 12, 24);
+
+  // subtítulo
+  const nextLv = QUESTIONS_PER_LV - (questions % QUESTIONS_PER_LV);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#64748b';
+  ctx.font = '11px "Exo 2",Arial';
+  ctx.fillText(`NIVEL ${level}  ·  ${nextLv} preg. para subir`, W / 2, 44);
+
+  // ranking
+  const racers = [
+    { name: playerName.substring(0,6), x: playerX, color: playerColor },
+    ...bots.map(b => ({ name: b.name, x: b.x, color: b.color }))
+  ].sort((a2, c) => c.x - a2.x);
+
+  racers.forEach((r, i) => {
+    ctx.fillStyle = r.color;
+    ctx.font = '11px "Exo 2",Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText((i + 1) + '. ' + r.name, W - 108, 38 + i * 14);
+  });
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3 * p.life, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawLevelUp() {
+  if (levelUpTimer <= 0) return;
+  ctx.globalAlpha = Math.min(1, levelUpTimer / 20);
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = 'bold 38px Orbitron,Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('¡NIVEL ' + level + '! ⬆', W / 2, H / 2 - 20);
+  ctx.globalAlpha = 1;
+}
+
+function drawFlash() {
+  if (flashTimer <= 0) return;
+  ctx.globalAlpha = flashTimer / 20;
+  ctx.fillStyle = flashColor;
+  ctx.fillRect(0, 0, W, H);
+  ctx.globalAlpha = 1;
+}
+
+function drawOverlay(title, titleColor, subtitle, btnLabel, btnColor) {
+  ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = titleColor;
+  ctx.font = 'bold 52px Orbitron,Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(title, W / 2, H / 2 - 40);
+  if (subtitle) {
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '16px "Exo 2",Arial';
+    ctx.fillText(subtitle, W / 2, H / 2 + 5);
+  }
+  ctx.fillStyle = btnColor;
+  ctx.beginPath(); ctx.roundRect(W / 2 - 90, H / 2 + 40, 180, 48, 10); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 18px "Exo 2",Arial';
+  ctx.fillText(btnLabel, W / 2, H / 2 + 70);
+}
+
+function drawPodium() {
+  ctx.fillStyle = 'rgba(0,0,5,0.88)'; ctx.fillRect(0, 0, W, H);
+
+  const winner  = finishOrder[0];
+  const pName   = playerName.substring(0, 6);
+  const isWin   = winner && winner.name === pName;
+
+  ctx.textAlign = 'center';
+  if (isWin) {
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 46px Orbitron,Arial';
+    ctx.fillText('🏆 ¡' + pName + ' GANÓ!', W / 2, 60);
+  } else {
+    ctx.fillStyle = '#ef4444';
+    ctx.font = 'bold 42px Orbitron,Arial';
+    ctx.fillText('¡' + (winner ? winner.name : 'BOT') + ' GANÓ!', W / 2, 60);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '15px "Exo 2",Arial';
+    ctx.fillText('Sigue practicando y vuelve a intentarlo', W / 2, 85);
+  }
+
+  // podio visual
+  const podiumX = W / 2;
+  const podiumBaseY = 340;
+  const heights = [130, 90, 65, 45];
+  const widths  = [120, 110, 100, 90];
+  const xPos    = [0, -145, 145, -290];
+  const colors  = ['#fbbf24','#94a3b8','#b45309','#475569'];
+  const medals  = ['🥇','🥈','🥉','4º'];
+
+  finishOrder.forEach((racer, i) => {
+    if (i > 3) return;
+    const bx = podiumX + xPos[i] - widths[i] / 2;
+    const by = podiumBaseY - heights[i];
+
+    // bloque del podio
+    ctx.fillStyle = colors[i];
+    ctx.globalAlpha = 0.18;
+    ctx.fillRect(bx, by, widths[i], heights[i]);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = colors[i];
+    ctx.lineWidth = 2;
+    ctx.strokeRect(bx, by, widths[i], heights[i]);
+
+    // número de posición dentro del bloque
+    ctx.fillStyle = colors[i];
+    ctx.font = `bold ${i === 0 ? 38 : 28}px Orbitron,Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(medals[i], podiumX + xPos[i], by + heights[i] / 2 + 10);
+
+    // nombre del corredor
+    ctx.fillStyle = racer.name === playerName.substring(0,6) ? playerColor : racer.color;
+    ctx.font = `bold ${i === 0 ? 16 : 13}px "Exo 2",Arial`;
+    ctx.fillText(racer.name, podiumX + xPos[i], podiumBaseY + 20);
+
+    // tiempo
+    ctx.fillStyle = '#475569';
+    ctx.font = '11px "Exo 2",Arial';
+    ctx.fillText(racer.time, podiumX + xPos[i], podiumBaseY + 36);
+  });
+
+  // base del podio
+  ctx.fillStyle = '#1e1e3a';
+  ctx.fillRect(podiumX - 320, podiumBaseY, 640, 8);
+
+  // score y nivel
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#64748b';
+  ctx.font = '13px "Exo 2",Arial';
+  ctx.fillText(`Score: ${score}  ·  Nivel ${level}  ·  Preguntas: ${questions + (level-1)*QUESTIONS_PER_LV}`, W / 2, podiumBaseY + 60);
+
+  // botón
+  ctx.fillStyle = isWin ? '#4f46e5' : '#dc2626';
+  ctx.beginPath(); ctx.roundRect(W / 2 - 100, podiumBaseY + 74, 200, 46, 10); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 17px "Exo 2",Arial';
+  ctx.fillText('REINTENTAR', W / 2, podiumBaseY + 103);
+}
+
+function drawMenu() {
+  ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, W, H);
+
+  // título
+  ctx.fillStyle = '#818cf8';
+  ctx.font = 'bold 56px Orbitron,Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('JULI KART', W / 2, 110);
+
+  ctx.fillStyle = '#475569';
+  ctx.font = '14px "Exo 2",Arial';
+  ctx.fillText('Responde el término que falta y gana la carrera', W / 2, 140);
+
+  // selector de modo
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = 'bold 13px "Exo 2",Arial';
+  ctx.fillText('ELIGE EL MODO DE JUEGO', W / 2, 195);
+
+  const modes = [
+    { key: 'suma',  label: '➕ SUMA',          sub: 'a + ? = c' },
+    { key: 'mult',  label: '✖ MULTIPLICACIÓN', sub: 'a × ? = c' },
+    { key: 'resta', label: '➖ RESTA',          sub: 'a − ? = c' },
+  ];
+  const boxW = 200, boxH = 72, gap = 20;
+  const totalW = modes.length * boxW + (modes.length - 1) * gap;
+  const startX = W / 2 - totalW / 2;
+
+  modes.forEach((m, i) => {
+    const bx = startX + i * (boxW + gap);
+    const by = 215;
+    const isSel = menuSelected === i;
+
+    ctx.fillStyle = isSel ? '#4f46e5' : '#12122a';
+    ctx.strokeStyle = isSel ? '#818cf8' : '#2a2a4a';
+    ctx.lineWidth = isSel ? 2.5 : 1;
+    ctx.beginPath(); ctx.roundRect(bx, by, boxW, boxH, 12); ctx.fill(); ctx.stroke();
+
+    ctx.fillStyle = isSel ? '#fff' : '#64748b';
+    ctx.font = `bold ${isSel ? 15 : 14}px "Exo 2",Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(m.label, bx + boxW / 2, by + 30);
+
+    ctx.fillStyle = isSel ? '#c7d2fe' : '#334155';
+    ctx.font = '12px "Exo 2",Arial';
+    ctx.fillText(m.sub, bx + boxW / 2, by + 52);
+  });
+
+  // flechas hint
+  ctx.fillStyle = '#334155';
+  ctx.font = '12px "Exo 2",Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('usa ← → para cambiar modo', W / 2, 310);
+
+  // botón iniciar
+  ctx.fillStyle = '#4f46e5';
+  ctx.beginPath(); ctx.roundRect(W / 2 - 100, 330, 200, 50, 12); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 20px "Exo 2",Arial';
+  ctx.fillText('INICIAR', W / 2, 362);
+}
+
+function drawCountdown() {
+  ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = 'bold 130px Orbitron,Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(countdownVal <= 0 ? '¡YA!' : countdownVal, W / 2, H / 2 + 50);
+}
+
+function drawPause() {
+  ctx.fillStyle = 'rgba(0,0,10,0.82)'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 44px Orbitron,Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('PAUSA', W / 2, H / 2 - 10);
+  ctx.fillStyle = '#475569';
+  ctx.font = '15px "Exo 2",Arial';
+  ctx.fillText('Presiona ⏸ para continuar', W / 2, H / 2 + 35);
+}
+
+// ===== LOOP PRINCIPAL =====
+function loop(ts) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(ts - lastTime, 50) / 16.67;
+  lastTime = ts;
+
+  ctx.clearRect(0, 0, W, H);
+
+  if (state === 'menu') { drawRoad(); drawMenu(); ctx.textAlign = 'left'; return; }
+
+  if (state === 'play') roadOffset = (roadOffset + 2 * dt) % 70;
+
+  drawRoad();
+
+  // bots
+  bots.forEach((bot, i) => {
+    botWobble[i] += 0.05 * dt;
+    const wobbleY = Math.sin(botWobble[i]) * 1.5;
+    if (state === 'play') {
+      const speedMult = 1 + (level - 1) * 0.05;
+      bot.x += bot.speed * speedMult * dt;
+    }
+    drawCar(bot.x, LANE_Y[i + 1] + wobbleY, bot.color, bot.name);
+  });
+
+  // jugador
+  playerX += (targetX - playerX) * 0.08 * dt;
+  playerX = Math.max(20, Math.min(FINISH + 10, playerX));
+  drawPlayerCar(playerX);
+
+  // partículas
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    p.vx *= 0.92; p.vy *= 0.92;
+    p.life -= 0.04;
+  });
+  particles = particles.filter(p => p.life > 0);
+  drawParticles();
+
+  drawHUD();
+  if (levelUpTimer > 0) { drawLevelUp(); levelUpTimer -= dt; }
+  if (flashTimer > 0)   { drawFlash();   flashTimer   -= dt; }
+
+  // chequeo de meta — registrar orden de llegada
+  if (state === 'play') {
+    const pName = playerName.substring(0,6);
+    const allRacers = [
+      { name: pName, x: playerX, color: playerColor },
+      ...bots.map(b => ({ name: b.name, x: b.x, color: b.color }))
+    ];
+
+    // registrar cada corredor que cruza por primera vez
+    allRacers.forEach(r => {
+      if (r.x >= FINISH && !finishOrder.find(f => f.name === r.name)) {
+        const elapsed = ((ts - raceStartTime) / 1000).toFixed(2) + 's';
+        finishOrder.push({ name: r.name, color: r.color, time: elapsed });
+        const laneIdx = r.name === pName ? 0 : bots.findIndex(b => b.name === r.name) + 1;
+        addParticles(FINISH, LANE_Y[laneIdx] + CAR_H / 2, r.name === pName ? '#fbbf24' : r.color, 20);
+      }
+    });
+
+    if (finishOrder.length > 0) {
+      const firstFinisher = finishOrder[0].name;
+
+      // Si el jugador llegó primero → terminar INMEDIATAMENTE
+      if (firstFinisher === pName && !window._finishTimeout) {
+        bots.slice().sort((a2, c) => c.x - a2.x).forEach(b => {
+          if (!finishOrder.find(f => f.name === b.name)) {
+            const elapsed = ((ts - raceStartTime) / 1000).toFixed(2) + 's';
+            finishOrder.push({ name: b.name, color: b.color, time: elapsed });
+          }
+        });
+        finishRacer = pName;
+        state = 'finish';
+        clearInterval(timerInterval);
+        playFinish();
+        launchConfetti(150);
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
+        syncUI();
+
+      // Si un BOT llegó primero → esperar 1.5s
+      } else if (firstFinisher !== pName && !window._finishTimeout) {
+        window._finishTimeout = setTimeout(() => {
+          const snapshot = [
+            { name: pName, x: playerX, color: playerColor },
+            ...bots.map(b => ({ name: b.name, x: b.x, color: b.color }))
+          ].sort((a2, c) => c.x - a2.x);
+          snapshot.forEach(r => {
+            if (!finishOrder.find(f => f.name === r.name)) {
+              const elapsed = ((performance.now() - raceStartTime) / 1000).toFixed(2) + 's';
+              finishOrder.push({ name: r.name, color: r.color, time: elapsed });
+            }
+          });
+          finishRacer = finishOrder[0].name;
+          state = 'finish';
+          clearInterval(timerInterval);
+          playFinish();
+          if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
+          syncUI();
+          window._finishTimeout = null;
+        }, 1500);
+      }
+    }
+  }
+
+  if (state === 'countdown') drawCountdown();
+  if (state === 'finish') { updateDrawConfetti(); drawPodium(); }
+  if (state === 'gameover')  drawOverlay(
+    'GAME OVER', '#ef4444',
+    'Score: ' + score + '  ·  Nivel alcanzado: ' + level,
+    'REINTENTAR', '#dc2626'
+  );
+  if (paused && state === 'play') drawPause();
+
+  ctx.textAlign = 'left';
+}
+
+requestAnimationFrame(loop);
+renderMenuButtons();
+</script>
+
+</body>
+</html>
